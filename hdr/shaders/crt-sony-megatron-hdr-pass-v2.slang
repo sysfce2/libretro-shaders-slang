@@ -33,7 +33,6 @@ layout(push_constant) uniform Push
    float hcrt_hdr;
    float hcrt_max_nits;
    float hcrt_paper_white_nits;
-   float hcrt_expand_gamut;
    float hcrt_colour_space;
 	
    float hcrt_r709_gamma_out;

@@ -460,6 +460,9 @@ void main()
       colour_mask = GetSlotMask(lcd_resolution, crt_resolution, lcd_subpixel_layout, current_position);
    }
 
+   // DEBUG: disable mask for testing
+   // colour_mask = kWhite;  
+
    const float scanline_size           = output_size.y / source_size.y;
 
    const vec3 horizontal_convergence   = vec3(HCRT_RED_HORIZONTAL_CONVERGENCE, HCRT_GREEN_HORIZONTAL_CONVERGENCE, HCRT_BLUE_HORIZONTAL_CONVERGENCE);
@@ -472,6 +475,11 @@ void main()
 
    const uint channel_count            = colour_mask & 3;
 
+   // DEBUG: bypass scanline generation, sample source HDR texture directly
+   // vec3 scanline_colour = COMPAT_TEXTURE(SourceHDR, tex_coord).rgb;
+
+   // vec3 linear_colour = pow(max(scanline_colour, 0.0f), vec3(2.4f));
+
    vec3 scanline_colour = vec3(0.0f);
 
    if(channel_count > 0)
@@ -480,14 +488,14 @@ void main()
 
       float scanline_channel_0   = GenerateScanline(channel_0,
                                                     tex_coord,
-                                                    source_size.xy, 
-                                                    scanline_size, 
-                                                    horizontal_convergence[channel_0], 
-                                                    vertical_convergence[channel_0], 
-                                                    beam_sharpness[channel_0], 
-                                                    beam_attack[channel_0], 
-                                                    scanline_min[channel_0], 
-                                                    scanline_max[channel_0], 
+                                                    source_size.xy,
+                                                    scanline_size,
+                                                    horizontal_convergence[channel_0],
+                                                    vertical_convergence[channel_0],
+                                                    beam_sharpness[channel_0],
+                                                    beam_attack[channel_0],
+                                                    scanline_min[channel_0],
+                                                    scanline_max[channel_0],
                                                     scanline_attack[channel_0]);
 
       scanline_colour =  scanline_channel_0 * kColourMask[channel_0];
@@ -499,14 +507,14 @@ void main()
 
       float scanline_channel_1   = GenerateScanline(channel_1,
                                                     tex_coord,
-                                                    source_size.xy, 
-                                                    scanline_size, 
-                                                    horizontal_convergence[channel_1], 
-                                                    vertical_convergence[channel_1], 
-                                                    beam_sharpness[channel_1], 
-                                                    beam_attack[channel_1], 
-                                                    scanline_min[channel_1], 
-                                                    scanline_max[channel_1], 
+                                                    source_size.xy,
+                                                    scanline_size,
+                                                    horizontal_convergence[channel_1],
+                                                    vertical_convergence[channel_1],
+                                                    beam_sharpness[channel_1],
+                                                    beam_attack[channel_1],
+                                                    scanline_min[channel_1],
+                                                    scanline_max[channel_1],
                                                     scanline_attack[channel_1]);
 
 
@@ -519,14 +527,14 @@ void main()
 
       float scanline_channel_2   = GenerateScanline(channel_2,
 													tex_coord,
-													source_size.xy, 
-													scanline_size, 
-													horizontal_convergence[channel_2], 
-													vertical_convergence[channel_2], 
-													beam_sharpness[channel_2], 
-													beam_attack[channel_2], 
-													scanline_min[channel_2], 
-													scanline_max[channel_2], 
+													source_size.xy,
+													scanline_size,
+													horizontal_convergence[channel_2],
+													vertical_convergence[channel_2],
+													beam_sharpness[channel_2],
+													beam_attack[channel_2],
+													scanline_min[channel_2],
+													scanline_max[channel_2],
 													scanline_attack[channel_2]);
 
       scanline_colour += scanline_channel_2 * kColourMask[channel_2];
@@ -536,12 +544,13 @@ void main()
 
    if (HCRT_HDR == 2u)
    {
-      /* scRGB: linear Rec.709, 1.0 = 80 nits.
-       * Always apply k2020_to_sRGB to match HDR10 visual behaviour:
-       *   r2020 (0): data IS Rec.2020 — accurate conversion to Rec.709
-       *   r709/sRGB (1/2): data is Rec.709 "interpreted" as 2020 — maximum boost
-       *   DCI-P3 (3): data is P3 "interpreted" as 2020 — moderate boost
-       *   Adobe (4): data is Adobe "interpreted" as 2020 — some boost */
+      /* scRGB: data is Rec.2020 (from To2020 in HDR pass).
+       * Convert to Rec.709 for scRGB output (1.0 = 80 nits).
+       * Colour boost is baked in via the Colour Space setting:
+       *   r709/sRGB (0/1):   proper 709→2020→709 round-trip — no boost
+       *   Adobe (2):         moderate boost
+       *   DCI-P3 (3):        wide boost
+       *   r2020 (4):         passthrough — maximum boost */
       linear_colour = linear_colour * k2020_to_sRGB;
 
       FragColor = vec4(linear_colour * (HCRT_MAX_NITS / 80.0), 1.0f);
@@ -554,22 +563,26 @@ void main()
    else
    {
       uint output_space = uint(HCRT_OUTPUT_COLOUR_SPACE);
-      
-      if (output_space == 0 || output_space == 1) // Rec.709
+
+      if (output_space == 0u) // r709
       {
          FragColor = vec4(LinearTo709(linear_colour), 1.0f);
       }
-      else if (output_space == 2) // sRGB
+      else if (output_space == 1u) // sRGB
       {
-         FragColor = vec4(LinearTosRGB(linear_colour), 1.0f);  
+         FragColor = vec4(LinearTosRGB(linear_colour), 1.0f);
       }
-      else if (output_space == 3) // DCI-P3
+      else if (output_space == 2u) // Adobe
+      {
+         FragColor = vec4(LinearToAdobe(linear_colour), 1.0f);
+      }
+      else if (output_space == 3u) // DCI-P3
       {
          FragColor = vec4(LinearToDCIP3(linear_colour), 1.0f);
       }
-      else // AdobeRGB
+      else // r2020 (4)
       {
-         FragColor = vec4(LinearToAdobe(linear_colour), 1.0f);
+         FragColor = vec4(LinearTo709(linear_colour), 1.0f);
       }
    }
 }
