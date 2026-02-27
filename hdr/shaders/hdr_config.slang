@@ -95,9 +95,9 @@ void main()
       if(gamut == 0u)
          target = linear * k709_to_2020;
       else if(gamut == 1u)
-         target = linear * k709_to_Expanded709;
+         target = linear * kExpanded709_to_2020;
       else if(gamut == 2u)
-         target = linear * k709_to_P3;
+         target = linear * kP3_to_2020;
       else
          target = linear;
       target = max(target, vec3(0.0));
@@ -121,9 +121,9 @@ void main()
       if(gamut == 0u)
          rec2020 = hdr * k709_to_2020;
       else if(gamut == 1u)
-         rec2020 = hdr * k709_to_Expanded709;
+         rec2020 = hdr * kExpanded709_to_2020;
       else if(gamut == 2u)
-         rec2020 = hdr * k709_to_P3;
+         rec2020 = hdr * kP3_to_2020;
       else
          rec2020 = hdr;
       rec2020 = max(rec2020, vec3(0.0));
